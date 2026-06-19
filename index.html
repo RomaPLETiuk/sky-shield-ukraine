@@ -183,6 +183,15 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-se
 #mob-content{background:rgba(8,22,34,0.97);border:1px solid var(--border);border-radius:10px;padding:6px;max-height:200px;overflow-y:auto;display:none}
 #mob-content.open{display:block}
 #mob-wbtn{width:100%;padding:10px;background:linear-gradient(135deg,#005bbb,#0077ee);border:2px solid var(--accent);border-radius:8px;color:#fff;font-size:13px;font-weight:700;font-family:inherit;letter-spacing:2px;cursor:pointer;text-transform:uppercase;margin-top:4px}
+
+/* ── MOBILE MAP CONTROLS ─────────────────────────────── */
+#mob-map-ctrl{display:none;position:fixed;right:8px;top:44px;z-index:95;flex-direction:column;gap:5px}
+@media(max-width:640px){#mob-map-ctrl{display:flex}}
+.mmc-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:rgba(8,22,34,0.92);color:var(--accent);font-size:16px;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;box-shadow:0 2px 8px rgba(0,0,0,0.5)}
+.mmc-btn:active{background:rgba(0,212,255,0.2);transform:scale(0.92)}
+.mmc-btn.pan-mode{border-color:var(--accent);background:rgba(0,212,255,0.18)}
+#mob-map-hint{position:fixed;top:44px;left:50%;transform:translateX(-50%);background:rgba(0,212,255,0.13);border:1px solid var(--accent);border-radius:20px;padding:4px 12px;font-size:10px;color:var(--accent);letter-spacing:1px;pointer-events:none;opacity:0;transition:opacity .4s;z-index:96;white-space:nowrap}
+#mob-map-hint.show{opacity:1}
 .mob-cards{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .mob-card{padding:7px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:rgba(13,32,64,0.5);transition:all .18s;text-align:center}
 .mob-card.sel{border-color:var(--accent);background:rgba(0,212,255,0.18)}
@@ -371,6 +380,15 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-se
     </div>
   </div>
 
+  <!-- MOBILE MAP CONTROLS (zoom/pan) -->
+  <div id="mob-map-ctrl">
+    <button class="mmc-btn" id="mmc-zoomin" title="Наблизити">＋</button>
+    <button class="mmc-btn" id="mmc-zoomout" title="Відdalити">－</button>
+    <button class="mmc-btn" id="mmc-reset" title="Скинути вигляд">⌂</button>
+    <button class="mmc-btn" id="mmc-pan" title="Режим переміщення">✥</button>
+  </div>
+  <div id="mob-map-hint"></div>
+
   <!-- MOBILE BOTTOM BAR -->
   <div id="mob-bar">
     <div id="mob-tabs">
@@ -537,12 +555,15 @@ function initGameMap(){
     console.error('Leaflet не завантажився — карту показати неможливо');
     return;
   }
+  const isMobInit = window.innerWidth <= 640;
   gameMap = L.map('gmap', {
     zoomControl:false, attributionControl:true,
-    dragging:false, scrollWheelZoom:false, doubleClickZoom:false,
-    boxZoom:false, keyboard:false, touchZoom:false, tap:false,
-    inertia:false, fadeAnimation:false, zoomAnimation:false
+    dragging: isMobInit, scrollWheelZoom:false, doubleClickZoom:false,
+    boxZoom:false, keyboard:false, touchZoom: isMobInit, tap:false,
+    inertia: isMobInit, fadeAnimation:false, zoomAnimation: isMobInit
   });
+  // On mobile: enable pan mode by default so first interaction pans map
+  if(isMobInit){ G.mapPanMode = false; }
 
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom:18,
@@ -571,11 +592,23 @@ function fitGameMap(){
   if(!gameMap) return;
   gameMap.invalidateSize();
   const isMob = window.innerWidth <= 640;
-  gameMap.fitBounds(getUaBounds(), {
-    animate: false,
-    paddingTopLeft:  [0, 0],
-    paddingBottomRight: [0, isMob ? Math.round(window.innerHeight * 0.22) : Math.round(window.innerHeight * 0.08)]
-  });
+  if(isMob){
+    // Zoom in more on mobile — center on Ukraine with extra zoom
+    gameMap.fitBounds(getUaBounds(), {
+      animate: false,
+      paddingTopLeft:  [0, 0],
+      paddingBottomRight: [0, Math.round(window.innerHeight * 0.32)]
+    });
+    // Zoom in 1 extra level for better visibility
+    const currentZoom = gameMap.getZoom();
+    gameMap.setZoom(currentZoom + 1, {animate: false});
+  } else {
+    gameMap.fitBounds(getUaBounds(), {
+      animate: false,
+      paddingTopLeft:  [0, 0],
+      paddingBottomRight: [0, Math.round(window.innerHeight * 0.08)]
+    });
+  }
 }
 
 // lon/lat → пікселі поверх реальної карти (для розміщення юнітів, ворогів, міст)
@@ -1531,6 +1564,41 @@ document.querySelectorAll('.dbtn').forEach(b=>{
 document.getElementById('playbtn').addEventListener('click',()=>{
   SFX.res(); SFX.click(); startGame(selDiff);
 });
+
+// ─── MOBILE MAP CONTROLS ─────────────────────────────
+(function(){
+  const isMob = () => window.innerWidth <= 640;
+  function showHint(txt){
+    const h = document.getElementById('mob-map-hint');
+    if(!h) return;
+    h.textContent = txt; h.classList.add('show');
+    clearTimeout(h._t); h._t = setTimeout(()=>h.classList.remove('show'), 1800);
+  }
+  function applyPanMode(on){
+    G.mapPanMode = on;
+    // When pan mode: canvas stops intercepting touches, Leaflet gets them directly
+    canvas.style.pointerEvents = on ? 'none' : '';
+    const btn = document.getElementById('mmc-pan');
+    if(btn) btn.classList.toggle('pan-mode', on);
+    showHint(on ? '✥ Режим панорами: тягни карту' : '🎯 Режим гри: тапай для розміщення');
+  }
+  document.getElementById('mmc-zoomin').addEventListener('click',()=>{
+    if(!gameMap||!isMob()) return;
+    gameMap.zoomIn(1,{animate:true}); showHint('🔍 Наближено');
+  });
+  document.getElementById('mmc-zoomout').addEventListener('click',()=>{
+    if(!gameMap||!isMob()) return;
+    gameMap.zoomOut(1,{animate:true}); showHint('🔍 Віддалено');
+  });
+  document.getElementById('mmc-reset').addEventListener('click',()=>{
+    if(!gameMap||!isMob()) return;
+    fitGameMap(); showHint('⌂ Вигляд скинуто');
+  });
+  document.getElementById('mmc-pan').addEventListener('click',()=>{
+    if(!isMob()) return;
+    applyPanMode(!G.mapPanMode);
+  });
+})();
 
 // Init
 resetState('normal');
