@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Повітряний Щит України</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#050d14;--bg2:#081622;--panel:#0a1a2e;--panel2:#0d2040;
+  --border:#1a3a5c;--accent:#00d4ff;--accent2:#0099cc;
+  --gold:#ffd700;--green:#00ff88;--red:#ff3333;--orange:#ff8800;
+  --text:#c8e8ff;--dim:#5a8aaa;
+  --ua1:#005bbb;--ua2:#ffd700;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-serif;overflow:hidden;user-select:none;height:100vh;width:100vw}
+.screen{position:fixed;inset:0;display:none}
+.screen.active{display:flex}
+
+/* LANDING */
+#landing{flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#081830 0%,#020810 100%);overflow:hidden}
+#lc{position:absolute;inset:0;pointer-events:none}
+.lcon{position:relative;z-index:10;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;animation:fadeUp 1s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.flag{width:80px;height:54px;display:flex;flex-direction:column;border-radius:4px;overflow:hidden;box-shadow:0 0 30px rgba(0,212,255,0.5)}
+.ft{flex:1;background:var(--ua1)}.fb{flex:1;background:var(--ua2)}
+.ltitle{font-size:clamp(26px,4.5vw,52px);font-weight:900;letter-spacing:2px;line-height:1.1;text-transform:uppercase;background:linear-gradient(135deg,#fff 0%,#00d4ff 50%,#ffd700 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 20px rgba(0,212,255,0.6))}
+.lsub{font-size:clamp(11px,1.8vw,16px);color:var(--accent);letter-spacing:4px;text-transform:uppercase;opacity:.85}
+.ldesc{max-width:500px;font-size:13px;color:var(--dim);line-height:1.7;padding:12px 18px;border:1px solid var(--border);border-radius:10px;background:rgba(10,26,46,0.7)}
+.dlbl{font-size:11px;color:var(--dim);letter-spacing:3px;text-transform:uppercase;margin-top:4px}
+.dbtns{display:flex;gap:10px}
+.dbtn{padding:9px 22px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--dim);font-size:13px;cursor:pointer;transition:all .2s;font-family:inherit;letter-spacing:1px}
+.dbtn:hover{border-color:var(--accent);color:var(--accent)}
+.dbtn.sel{background:rgba(0,212,255,0.15);border-color:var(--accent);color:#fff;box-shadow:0 0 12px rgba(0,212,255,0.3)}
+.playbtn{padding:14px 56px;background:linear-gradient(135deg,#005bbb,#0077ee);border:2px solid var(--accent);border-radius:8px;color:#fff;font-size:18px;font-weight:700;cursor:pointer;letter-spacing:3px;text-transform:uppercase;transition:all .25s;font-family:inherit;box-shadow:0 0 20px rgba(0,91,187,0.5);margin-top:4px}
+.playbtn:hover{background:linear-gradient(135deg,#0077ee,#00aaf0);box-shadow:0 0 40px rgba(0,212,255,0.6);transform:scale(1.04)}
+
+/* Leaflet theme overrides */
+.leaflet-container{background:#081622;font-family:inherit;color:var(--text)}
+.leaflet-control-attribution{background:rgba(5,13,20,0.75)!important;color:var(--dim)!important;font-size:9px!important}
+.leaflet-control-attribution a{color:var(--dim)!important}
+.leaflet-control-zoom a{background:rgba(10,26,46,0.9)!important;color:var(--accent)!important;border-color:var(--border)!important}
+.leaflet-control-zoom a:hover{background:rgba(0,212,255,0.18)!important}
+.leaflet-tooltip{background:rgba(10,26,46,0.95)!important;border:1px solid var(--border)!important;color:var(--text)!important;font-family:inherit;font-size:11px;border-radius:6px;box-shadow:0 0 10px rgba(0,212,255,0.25)}
+.leaflet-tooltip-top:before{border-top-color:var(--border)!important}
+.cmk-wrap{background:none!important;border:none!important}
+.cmk{width:14px;height:14px;border-radius:50%;background:#88aacc;border:2px solid rgba(255,255,255,0.85);box-shadow:0 0 6px rgba(0,0,0,0.5);transition:all .15s;cursor:pointer}
+.cmk.on{background:var(--accent);box-shadow:0 0 10px var(--accent),0 0 4px #fff}
+.cmk.capital{background:var(--gold)}
+.cmk.capital.on{box-shadow:0 0 12px var(--gold),0 0 4px #fff}
+
+/* ── GAME HEADER BAR ─────────────────────────────────── */
+#game-header{
+  position:fixed;top:0;left:0;right:0;height:36px;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(90deg,#051020 0%,#0a1e3a 40%,#0d2448 60%,#051020 100%);
+  border-bottom:1px solid var(--accent);
+  box-shadow:0 0 18px rgba(0,212,255,0.25),0 2px 8px rgba(0,0,0,0.6);
+  padding:0 12px;flex-shrink:0;
+}
+.gh-brand{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.gh-flag{width:28px;height:19px;display:flex;flex-direction:column;border-radius:2px;overflow:hidden;flex-shrink:0}
+.gh-flag .ft{flex:1;background:var(--ua1)}.gh-flag .fb{flex:1;background:var(--ua2)}
+.gh-title{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  background:linear-gradient(90deg,#fff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;white-space:nowrap}
+.gh-stats{display:flex;gap:0;flex:1;justify-content:center}
+.gh-stat{display:flex;flex-direction:column;align-items:center;padding:0 10px;border-right:1px solid rgba(26,58,92,0.7)}
+.gh-stat:first-child{border-left:1px solid rgba(26,58,92,0.7)}
+.gh-sv{font-size:13px;font-weight:700;color:#fff;line-height:1.1}
+.gh-sl{font-size:7px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase}
+.gh-wave{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.gh-wbdg{padding:2px 8px;background:rgba(0,212,255,0.12);border:1px solid var(--accent);border-radius:12px;font-size:9px;color:var(--accent);letter-spacing:1px;white-space:nowrap}
+
+/* GAME LAYOUT */
+#game{flex-direction:column;background:var(--bg);height:100vh;overflow:hidden}
+#game-body{flex:1;display:flex;flex-direction:row;overflow:hidden;margin-top:36px;height:calc(100vh - 36px)}
+#lp{width:195px;min-width:195px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:8px 0;overflow-y:auto;z-index:5;flex-shrink:0}
+#rp{width:195px;min-width:195px;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;padding:8px;overflow-y:auto;z-index:5;flex-shrink:0}
+#gc{flex:1;position:relative;overflow:hidden}
+#gmap{position:absolute;inset:0;z-index:0;pointer-events:none}
+#gc canvas{display:block;position:absolute;inset:0;z-index:1}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.ptitle{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);padding:0 10px 7px;border-bottom:1px solid var(--border);margin-bottom:6px}
+.srow{display:flex;justify-content:space-between;padding:3px 8px;font-size:12px}
+.srow .sl{color:var(--dim);font-size:10px}.srow .sv{color:#fff;font-weight:600}
+.sv.gold{color:var(--gold)}.sv.green{color:var(--green)}.sv.red{color:var(--red)}
+
+.ibar-w{padding:5px 8px}
+.ibar-l{font-size:10px;color:var(--dim);margin-bottom:3px;letter-spacing:1px}
+.ibar{height:9px;border-radius:5px;background:rgba(255,255,255,0.07);border:1px solid var(--border);overflow:hidden}
+.ibar-f{height:100%;border-radius:5px;background:linear-gradient(90deg,#00ff88,#00cc66);transition:width .5s,background .5s}
+
+.dc{margin:3px 8px;padding:8px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:rgba(13,32,64,0.4);transition:all .18s;position:relative}
+.dc:hover{border-color:var(--accent);background:rgba(0,212,255,0.07)}
+.dc.sel{border-color:var(--accent);background:rgba(0,212,255,0.14);box-shadow:0 0 10px rgba(0,212,255,0.22)}
+.dc .dn{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px}
+.dc .dco{font-size:11px;color:var(--gold);margin-bottom:3px}
+.dc .dd{font-size:9px;color:var(--dim);line-height:1.4}
+.dc .di{font-size:20px;position:absolute;right:7px;top:7px}
+.dbw{margin-top:4px;display:flex;flex-direction:column;gap:2px}
+.dbr{display:flex;align-items:center;gap:3px;font-size:8px;color:var(--dim)}
+.dbb{flex:1;height:3px;background:rgba(255,255,255,0.09);border-radius:2px;overflow:hidden}
+.dbbf{height:100%;border-radius:2px}
+
+.abtn{margin:3px 8px;padding:7px;border:1px solid var(--border);border-radius:6px;background:rgba(13,32,64,0.4);color:var(--text);font-size:11px;cursor:pointer;text-align:center;transition:all .18s;font-family:inherit;letter-spacing:1px}
+.abtn:hover{border-color:var(--accent);color:var(--accent)}
+.abtn.on{background:rgba(0,212,255,0.13);border-color:var(--accent);color:#fff}
+.abtn.sell{border-color:#ff6600;color:#ff8800}.abtn.sell:hover{background:rgba(255,100,0,0.13)}
+.abtn.cities{border-color:#8844ff;color:#aa66ff}.abtn.cities:hover{background:rgba(136,68,255,0.13)}
+
+.spdr{display:flex;gap:3px;margin:3px 8px}
+.spdb{flex:1;padding:5px 3px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--dim);font-size:10px;cursor:pointer;text-align:center;transition:all .18s;font-family:inherit}
+.spdb:hover{border-color:var(--accent);color:var(--accent)}
+.spdb.on{background:rgba(0,212,255,0.13);border-color:var(--accent);color:#fff}
+
+.sep{height:1px;background:var(--border);margin:6px 0}
+.wbdg{display:inline-block;padding:2px 9px;background:rgba(0,212,255,0.1);border:1px solid var(--accent);border-radius:20px;font-size:10px;color:var(--accent);margin:4px 8px}
+.erow{display:flex;align-items:center;gap:5px;padding:2px 0;font-size:10px;color:var(--dim)}
+.edot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+#hud{display:none}
+
+#msgbox{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(255,50,50,0.92);border:1px solid #ff6666;border-radius:8px;padding:7px 18px;font-size:13px;color:#fff;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:50;white-space:nowrap}
+#msgbox.show{opacity:1}
+
+#wbtn{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);padding:11px 36px;background:linear-gradient(135deg,#005bbb,#0077ee);border:2px solid var(--accent);border-radius:8px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:2px;text-transform:uppercase;transition:all .2s;font-family:inherit;z-index:20;box-shadow:0 0 18px rgba(0,91,187,0.5)}
+#wbtn:hover{box-shadow:0 0 30px rgba(0,212,255,0.5);transform:translateX(-50%) scale(1.04)}
+#wbtn:disabled{opacity:.4;cursor:not-allowed;transform:translateX(-50%)}
+
+#pause-ov{position:absolute;inset:0;background:rgba(5,13,20,0.85);display:none;align-items:center;justify-content:center;z-index:60;font-size:38px;font-weight:900;color:var(--accent);letter-spacing:5px;text-transform:uppercase}
+#pause-ov.show{display:flex}
+
+#ui-panel{padding:5px 7px;background:rgba(0,212,255,0.05);border:1px solid var(--border);border-radius:7px;margin:3px 8px;font-size:10px;display:none}
+#ui-panel.show{display:block}
+#ui-nm{font-size:12px;font-weight:700;color:#fff;margin-bottom:3px}
+.uihpb{height:4px;background:rgba(255,255,255,0.09);border-radius:2px;overflow:hidden;margin-bottom:4px}
+.uihpf{height:100%;background:var(--green);border-radius:2px}
+
+/* ── CITY SELECTOR MODAL (mobile-fixed) ─────────────── */
+#city-modal{position:fixed;inset:0;background:rgba(5,13,20,0.96);z-index:200;display:none;align-items:center;justify-content:center}
+#city-modal.open{display:flex}
+.cm-box{
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;
+  padding:16px;max-width:960px;width:96vw;max-height:92vh;
+  display:flex;flex-direction:column;gap:8px;
+  box-shadow:0 0 50px rgba(0,212,255,0.12);overflow:hidden;
+}
+.cm-title{font-size:18px;font-weight:700;color:var(--accent);letter-spacing:2px;text-align:center;flex-shrink:0}
+.cm-sub{font-size:12px;color:var(--dim);text-align:center;flex-shrink:0}
+.cm-btns{display:flex;gap:8px;justify-content:center;flex-shrink:0}
+.cm-btn{padding:9px 20px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:1px;transition:all .2s}
+.cm-ok{background:linear-gradient(135deg,#005bbb,#0077ee);border:1px solid var(--accent);color:#fff}
+.cm-ok:hover{box-shadow:0 0 20px rgba(0,212,255,0.4)}
+.cm-all,.cm-none{background:transparent;border:1px solid var(--border);color:var(--dim)}
+.cm-all:hover,.cm-none:hover{border-color:var(--accent);color:var(--accent)}
+.cm-count{text-align:center;font-size:11px;color:var(--dim);letter-spacing:1px;flex-shrink:0}
+.cm-count b{color:var(--accent);font-size:13px}
+.cm-content{display:flex;gap:14px;flex:1;min-height:0;overflow:hidden}
+#cm-map{flex:1 1 380px;min-height:0;border-radius:10px;border:1px solid var(--border);overflow:hidden;box-shadow:inset 0 0 24px rgba(0,212,255,0.08);background:#081622}
+.cm-list{flex:1 1 240px;min-height:0;display:flex;flex-direction:column;gap:5px;overflow-y:auto;padding:2px 4px 2px 0}
+.cm-list::-webkit-scrollbar{width:4px}.cm-list::-webkit-scrollbar-thumb{background:var(--border)}
+.cm-city-row{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:rgba(13,32,64,0.4);transition:all .15s;font-size:12px;flex-shrink:0}
+.cm-city-row:hover{border-color:var(--accent);background:rgba(0,212,255,0.08)}
+.cm-city-row.on{border-color:var(--accent);background:rgba(0,212,255,0.16);color:#fff}
+.cm-city-row.capital{border-color:var(--gold)}
+.cm-city-row.capital.on{background:rgba(255,215,0,0.14)}
+.cm-city-row input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0}
+.cm-city-row .cdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.cm-city-row .cinfo{display:flex;flex-direction:column;line-height:1.3}
+.cm-city-row .cname{font-weight:600}
+.cm-city-row .creg{font-size:9px;color:var(--dim)}
+
+/* ── MOBILE BOTTOM BAR ───────────────────────────────── */
+#mob-bar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:90;
+  background:linear-gradient(180deg,rgba(5,13,20,0) 0%,rgba(5,13,20,0.97) 18px);
+  padding:8px 6px 10px;}
+#mob-tabs{display:flex;gap:4px;justify-content:center;margin-bottom:6px}
+.mob-tab{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:6px;background:rgba(10,26,46,0.9);color:var(--dim);font-size:10px;font-family:inherit;cursor:pointer;text-align:center;transition:all .18s;max-width:80px}
+.mob-tab.on{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.12)}
+#mob-content{background:rgba(8,22,34,0.97);border:1px solid var(--border);border-radius:10px;padding:6px;max-height:200px;overflow-y:auto;display:none}
+#mob-content.open{display:block}
+#mob-wbtn{width:100%;padding:10px;background:linear-gradient(135deg,#005bbb,#0077ee);border:2px solid var(--accent);border-radius:8px;color:#fff;font-size:13px;font-weight:700;font-family:inherit;letter-spacing:2px;cursor:pointer;text-transform:uppercase;margin-top:4px}
+.mob-cards{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.mob-card{padding:7px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:rgba(13,32,64,0.5);transition:all .18s;text-align:center}
+.mob-card.sel{border-color:var(--accent);background:rgba(0,212,255,0.18)}
+.mob-card .mc-icon{font-size:18px}
+.mob-card .mc-name{font-size:10px;font-weight:700;color:#fff;margin:2px 0}
+.mob-card .mc-cost{font-size:9px;color:var(--gold)}
+.mob-stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:10px}
+.mob-sitem{padding:4px 6px;background:rgba(13,32,64,0.5);border:1px solid var(--border);border-radius:5px}
+.mob-sitem .msl{color:var(--dim);font-size:9px}.mob-sitem .msv{color:#fff;font-weight:700}
+.mob-actions{display:flex;gap:4px;flex-wrap:wrap}
+.mob-abtn{flex:1;min-width:70px;padding:6px 4px;border:1px solid var(--border);border-radius:6px;background:rgba(13,32,64,0.5);color:var(--dim);font-size:10px;font-family:inherit;cursor:pointer;text-align:center;transition:all .18s}
+.mob-abtn.sell{border-color:#ff6600;color:#ff8800}
+.mob-abtn.cities{border-color:#8844ff;color:#aa66ff}
+.mob-spd{display:flex;gap:3px;margin-top:4px}
+.mob-spd button{flex:1;padding:5px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--dim);font-size:10px;font-family:inherit;cursor:pointer;transition:all .18s}
+.mob-spd button.on{border-color:var(--accent);color:#fff;background:rgba(0,212,255,0.15)}
+
+/* ── MEDIA QUERIES ───────────────────────────────────── */
+@media(max-width:640px){
+  #game-header .gh-title{display:none}
+  .gh-flag{display:none}
+  .gh-stat{padding:0 7px}
+  .gh-sv{font-size:12px}
+  #lp,#rp{display:none}
+  #mob-bar{display:block}
+  #wbtn{display:none}
+  /* city modal full-screen */
+  #city-modal{align-items:stretch;justify-content:stretch}
+  .cm-box{max-height:100dvh;height:100dvh;border-radius:0;padding:10px;gap:6px;width:100vw;max-width:100vw}
+  .cm-title{font-size:14px;letter-spacing:1px}
+  .cm-sub{display:none}
+  .cm-btn{padding:10px 12px;font-size:12px;flex:1}
+  .cm-btns{gap:5px}
+  .cm-content{flex-direction:column;gap:8px}
+  #cm-map{flex:0 0 180px;min-height:180px;max-height:180px;display:block}
+  .cm-list{flex:1 1 0;min-height:0}
+}
+@media(max-width:380px){
+  .gh-stat{padding:0 5px}
+  .gh-sv{font-size:11px}
+  .gh-sl{display:none}
+}
+
+/* GAME OVER */
+#gameover{flex-direction:column;align-items:center;justify-content:center;background:rgba(5,13,20,0.97);z-index:100}
+.got{font-size:42px;font-weight:900;color:var(--red);text-transform:uppercase;letter-spacing:4px;margin-bottom:8px;text-shadow:0 0 28px rgba(255,50,50,0.7)}
+.gos{font-size:14px;color:var(--dim);margin-bottom:24px}
+.gog{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px;min-width:300px}
+.gost{padding:12px;background:var(--panel);border:1px solid var(--border);border-radius:8px;text-align:center}
+.gsv{font-size:26px;font-weight:700;color:var(--accent)}
+.gsl{font-size:10px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-top:3px}
+.hsl{margin-bottom:20px;text-align:center}
+.hstl{font-size:11px;color:var(--dim);letter-spacing:3px;text-transform:uppercase;margin-bottom:6px}
+.rsbtn{padding:12px 44px;background:linear-gradient(135deg,#005bbb,#0077ee);border:2px solid var(--accent);border-radius:8px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:2px;text-transform:uppercase;transition:all .2s;font-family:inherit;box-shadow:0 0 18px rgba(0,91,187,0.5);margin:5px}
+.rsbtn:hover{box-shadow:0 0 36px rgba(0,212,255,0.6);transform:scale(1.04)}
+.mnbtn{padding:9px 26px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--dim);font-size:13px;font-weight:600;cursor:pointer;letter-spacing:2px;text-transform:uppercase;transition:all .2s;font-family:inherit;margin:5px}
+.mnbtn:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="landing" class="screen active">
+<canvas id="lc"></canvas>
+<div class="lcon">
+  <div class="flag"><div class="ft"></div><div class="fb"></div></div>
+  <div class="ltitle">Повітряний Щит<br>України</div>
+  <div class="lsub">Стратегічна гра протиповітряної оборони</div>
+  <div class="ldesc">Розміщуйте системи ППО на реальній карті України, відбивайте хвилі<br>ворожих Шахедів та крилатих ракет. Захищайте міста та стратегічні об'єкти.</div>
+  <div class="dlbl">Рівень складності</div>
+  <div class="dbtns">
+    <button class="dbtn" data-d="easy">Легко</button>
+    <button class="dbtn sel" data-d="normal">Нормально</button>
+    <button class="dbtn" data-d="hard">Важко</button>
+  </div>
+  <button class="playbtn" id="playbtn">⚡ ГРАТИ</button>
+</div>
+</div>
+
+<!-- CITY SELECTOR MODAL -->
+<div id="city-modal">
+<div class="cm-box">
+  <div class="cm-title">🏙 Вибір міст для захисту</div>
+  <div class="cm-sub">Оберіть на карті або у списку, які міста будуть цілями для ворогів. Більше міст — складніший захист.</div>
+  <div class="cm-btns">
+    <button class="cm-btn cm-all" id="cm-all">✓ Всі</button>
+    <button class="cm-btn cm-none" id="cm-none">✕ Жодного</button>
+    <button class="cm-btn cm-ok" id="cm-ok">✓ Підтвердити</button>
+  </div>
+  <div class="cm-count">Захищається міст: <b id="cm-count">0</b> / <span id="cm-total">0</span></div>
+  <div class="cm-content">
+    <div id="cm-map"></div>
+    <div class="cm-list" id="cm-grid"></div>
+  </div>
+</div>
+</div>
+
+<!-- GAME -->
+<div id="game" class="screen">
+
+  <!-- HEADER BAR -->
+  <div id="game-header">
+    <div class="gh-brand">
+      <div class="gh-flag"><div class="ft"></div><div class="fb"></div></div>
+      <span class="gh-title">Повітряний Щит</span>
+    </div>
+    <div class="gh-stats">
+      <div class="gh-stat"><div class="gh-sv gold" id="ghm">0</div><div class="gh-sl">💰 Бюджет</div></div>
+      <div class="gh-stat"><div class="gh-sv" id="ghs">0</div><div class="gh-sl">🎖 Рахунок</div></div>
+      <div class="gh-stat"><div class="gh-sv" id="ghw">1</div><div class="gh-sl">🌊 Хвиля</div></div>
+      <div class="gh-stat"><div class="gh-sv" id="ghk">0</div><div class="gh-sl">💥 Збито</div></div>
+      <div class="gh-stat"><div class="gh-sv green" id="ghi" style="color:var(--green)">100%</div><div class="gh-sl">🛡 Цілісність</div></div>
+    </div>
+    <div class="gh-wave">
+      <div class="gh-wbdg" id="gh-wbdg">ПІДГОТОВКА</div>
+    </div>
+  </div>
+
+  <!-- BODY (panels + map) -->
+  <div id="game-body">
+    <div id="lp">
+      <div class="ptitle">⚔ Системи ППО</div>
+      <div id="dcards"></div>
+      <div class="sep"></div>
+      <div class="ptitle">🎯 Дії</div>
+      <button class="abtn cities" id="btn-cities">🏙 Міста захисту</button>
+      <button class="abtn sell" id="btn-sell">🔧 Продати (Esc)</button>
+      <button class="abtn" id="btn-pause">⏸ Пауза [P]</button>
+      <div class="spdr">
+        <button class="spdb on" data-sp="1">×1</button>
+        <button class="spdb" data-sp="2">×2</button>
+        <button class="spdb" data-sp="3">×3</button>
+      </div>
+      <div class="sep"></div>
+      <div class="ptitle">🛡 Вибрана одиниця</div>
+      <div id="ui-panel">
+        <div id="ui-nm">—</div>
+        <div class="uihpb"><div class="uihpf" id="ui-hpf" style="width:100%"></div></div>
+        <div id="ui-kl" style="color:var(--dim)">Знищено: 0</div>
+      </div>
+    </div>
+
+    <div id="gc">
+      <div id="gmap"></div>
+      <canvas id="gcanvas"></canvas>
+      <div id="hud">
+        <div class="hi"><div class="hv" id="hm">0</div><div class="hl">💰 Бюджет</div></div>
+        <div class="hi"><div class="hv" id="hs">0</div><div class="hl">🎖 Рахунок</div></div>
+        <div class="hi"><div class="hv" id="hw">1</div><div class="hl">🌊 Хвиля</div></div>
+        <div class="hi"><div class="hv" id="hk">0</div><div class="hl">💥 Знищено</div></div>
+        <div class="hi"><div class="hv" id="hi2" style="color:var(--green)">100%</div><div class="hl">🛡 Цілісність</div></div>
+      </div>
+      <div id="msgbox"></div>
+      <div id="pause-ov">⏸ ПАУЗА</div>
+      <button id="wbtn">▶ ПОЧАТИ ХВИЛЮ 1</button>
+    </div>
+
+    <div id="rp">
+      <div class="ptitle">📊 Стан захисту</div>
+      <div class="ibar-w">
+        <div class="ibar-l">ЦІЛІСНІСТЬ ОБОРОНИ</div>
+        <div class="ibar"><div class="ibar-f" id="ibf" style="width:100%"></div></div>
+      </div>
+      <div class="sep"></div>
+      <div class="srow"><span class="sl">Бюджет</span><span class="sv gold" id="sm">0</span></div>
+      <div class="srow"><span class="sl">Рахунок</span><span class="sv" id="ss">0</span></div>
+      <div class="srow"><span class="sl">Хвиля</span><span class="sv" id="sw">1</span></div>
+      <div class="srow"><span class="sl">Знищено</span><span class="sv green" id="sk">0</span></div>
+      <div class="srow"><span class="sl">Пропущено</span><span class="sv red" id="smis">0</span></div>
+      <div class="srow"><span class="sl">Одиниць ППО</span><span class="sv" id="su">0</span></div>
+      <div class="sep"></div>
+      <div class="wbdg" id="wbdg">ПІДГОТОВКА</div>
+      <div class="sep"></div>
+      <div class="ptitle">🏙 Цілі ворогів</div>
+      <div id="city-list" style="padding:0 8px;font-size:10px;color:var(--dim);max-height:130px;overflow-y:auto"></div>
+      <div class="sep"></div>
+      <div class="ptitle">👁 Загрози</div>
+      <div style="padding:0 8px">
+        <div class="erow"><div class="edot" style="background:#ff6600"></div>Шахед-136</div>
+        <div class="erow"><div class="edot" style="background:#ff0044"></div>Крилата ракета</div>
+        <div class="erow"><div class="edot" style="background:#cc00ff"></div>Розвідувальний</div>
+      </div>
+      <div class="sep"></div>
+      <div class="ptitle">🏆 Рекорди</div>
+      <div id="hsp" style="padding:0 8px;font-size:10px;color:var(--dim)"></div>
+    </div>
+  </div>
+
+  <!-- MOBILE BOTTOM BAR -->
+  <div id="mob-bar">
+    <div id="mob-tabs">
+      <button class="mob-tab on" data-tab="ppo">⚔ ППО</button>
+      <button class="mob-tab" data-tab="actions">🎯 Дії</button>
+      <button class="mob-tab" data-tab="stats">📊 Стан</button>
+    </div>
+    <div id="mob-content" class="open"></div>
+    <button id="mob-wbtn">▶ ПОЧАТИ ХВИЛЮ 1</button>
+  </div>
+
+</div>
+
+<!-- GAME OVER -->
+<div id="gameover" class="screen">
+  <div class="got">🛡 ОБОРОНУ ПРОРВАНО</div>
+  <div class="gos">Захист України вичерпано. Слава Україні!</div>
+  <div class="gog">
+    <div class="gost"><div class="gsv" id="go-sc">0</div><div class="gsl">Рахунок</div></div>
+    <div class="gost"><div class="gsv" id="go-wv">1</div><div class="gsl">Хвиль</div></div>
+    <div class="gost"><div class="gsv" id="go-kl">0</div><div class="gsl">Знищено</div></div>
+    <div class="gost"><div class="gsv" id="go-ms">0</div><div class="gsl">Пропущено</div></div>
+  </div>
+  <div class="hsl">
+    <div class="hstl">🏆 Найкращі результати</div>
+    <div id="hs-go"></div>
+  </div>
+  <div>
+    <button class="rsbtn" id="rs-btn">🔄 Знову</button>
+    <button class="mnbtn" id="mn-btn">🏠 Меню</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+//  ПОВІТРЯНИЙ ЩИТ УКРАЇНИ — повна версія з реальною картою
+// ═══════════════════════════════════════════════════════
+
+// Всі обласні центри з реальними координатами
+const ALL_CITIES = [
+  {name:"Київ",      region:"Київська",         lon:30.5238,lat:50.4501,capital:true,  pop:3},
+  {name:"Харків",    region:"Харківська",        lon:36.2292,lat:49.9935,capital:false, pop:3},
+  {name:"Дніпро",    region:"Дніпропетровська",  lon:35.0456,lat:48.4647,capital:false, pop:3},
+  {name:"Одеса",     region:"Одеська",           lon:30.7326,lat:46.4825,capital:false, pop:3},
+  {name:"Запоріжжя", region:"Запорізька",        lon:35.1396,lat:47.8388,capital:false, pop:2},
+  {name:"Львів",     region:"Львівська",         lon:24.0297,lat:49.8397,capital:false, pop:2},
+  {name:"Кривий Ріг",region:"Дніпропетровська",  lon:33.3650,lat:47.9077,capital:false, pop:2},
+  {name:"Миколаїв",  region:"Миколаївська",      lon:31.9946,lat:46.9750,capital:false, pop:2},
+  {name:"Маріуполь", region:"Донецька",          lon:37.5486,lat:47.0956,capital:false, pop:2},
+  {name:"Луганськ",  region:"Луганська",         lon:39.3078,lat:48.5740,capital:false, pop:2},
+  {name:"Вінниця",   region:"Вінницька",         lon:28.4816,lat:49.2328,capital:false, pop:2},
+  {name:"Херсон",    region:"Херсонська",        lon:32.6169,lat:46.6354,capital:false, pop:1},
+  {name:"Полтава",   region:"Полтавська",        lon:34.5514,lat:49.5883,capital:false, pop:1},
+  {name:"Чернігів",  region:"Чернігівська",      lon:31.2820,lat:51.4982,capital:false, pop:1},
+  {name:"Черкаси",   region:"Черкаська",         lon:32.0598,lat:49.4444,capital:false, pop:1},
+  {name:"Суми",      region:"Сумська",           lon:34.7981,lat:50.9077,capital:false, pop:1},
+  {name:"Житомир",   region:"Житомирська",       lon:28.6587,lat:50.2547,capital:false, pop:1},
+  {name:"Хмельницький",region:"Хмельницька",     lon:26.9871,lat:49.4229,capital:false, pop:1},
+  {name:"Рівне",     region:"Рівненська",        lon:26.2516,lat:50.6199,capital:false, pop:1},
+  {name:"Луцьк",     region:"Волинська",         lon:25.3254,lat:50.7472,capital:false, pop:1},
+  {name:"Тернопіль", region:"Тернопільська",     lon:25.5948,lat:49.5535,capital:false, pop:1},
+  {name:"Івано-Франківськ",region:"Івано-Франківська",lon:24.7111,lat:48.9226,capital:false,pop:1},
+  {name:"Ужгород",   region:"Закарпатська",      lon:22.2879,lat:48.6208,capital:false, pop:1},
+  {name:"Чернівці",  region:"Чернівецька",       lon:25.9403,lat:48.2921,capital:false, pop:1},
+  {name:"Кропивницький",region:"Кіровоградська", lon:32.2597,lat:48.5132,capital:false, pop:1},
+  {name:"Донецьк",   region:"Донецька",          lon:37.8028,lat:48.0159,capital:false, pop:2},
+  {name:"Сімферополь",region:"АР Крим",          lon:34.1024,lat:44.9521,capital:false, pop:1},
+];
+
+// ─── AUDIO ENGINE ────────────────────────────────────
+const SFX = (() => {
+  let ctx;
+  const init = () => { if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); };
+  const res  = () => { init(); if(ctx.state==='suspended') ctx.resume(); };
+  const noise = (dur,vol=0.5) => {
+    init();
+    try {
+      const b=ctx.createBuffer(1,ctx.sampleRate*dur,ctx.sampleRate);
+      const d=b.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(d.length*.35))*vol;
+      const s=ctx.createBufferSource(); s.buffer=b;
+      const g=ctx.createGain(); g.gain.value=1;
+      s.connect(g); g.connect(ctx.destination); s.start();
+    }catch(e){}
+  };
+  const tone = (f,t,tp,vol=.25,atk=.01)=>{
+    init();
+    try{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type=tp;o.frequency.value=f;
+      g.gain.setValueAtTime(0,ctx.currentTime);
+      g.gain.linearRampToValueAtTime(vol,ctx.currentTime+atk);
+      g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+t);
+      o.start(ctx.currentTime);o.stop(ctx.currentTime+t);
+    }catch(e){}
+  };
+  return {
+    res,
+    shoot:  ()=>noise(.1,.35),
+    boom:   (big)=>{ noise(big?.6:.3,big?.8:.5); if(big)tone(55,'sine',.5,.4); },
+    warn:   ()=>{ tone(880,.18,'square',.22); setTimeout(()=>tone(660,.18,'square',.22),230); },
+    click:  ()=>tone(440,.1,'sine',.15),
+    wave:   ()=>{ [330,440,550].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',.25,.28),i*120)); },
+  };
+})();
+
+// ─── DIFFICULTY ──────────────────────────────────────
+const DIFFS = {
+  easy:  {money:1400,spd:.65,wsize:.6,name:'Легко',     rangeMul:0.9},
+  normal:{money:900, spd:1.0, wsize:1.0,name:'Нормально',rangeMul:0.75},
+  hard:  {money:550, spd:1.4, wsize:1.5,name:'Важко',    rangeMul:0.5},
+};
+
+// ─── DEFENSE DEFINITIONS ─────────────────────────────
+const DEF_TYPES = [
+  {id:'patriot',name:'Patriot',cost:600,range:165,dmg:130,rate:1100,icon:'🎯',
+   col:'#00aaff',ring:'rgba(0,170,255,0.18)',desc:'Відмінно vs ракети',
+   pri:['missile','recon','shahed'],
+   st:{range:1,dmg:1,spd:.45}},
+  {id:'nasams',name:'NASAMS',cost:380,range:115,dmg:72,rate:850,icon:'🚀',
+   col:'#00ff88',ring:'rgba(0,255,136,0.18)',desc:'Збалансована vs всіх',
+   pri:['missile','shahed','recon'],
+   st:{range:.65,dmg:.55,spd:.7}},
+  {id:'gepard',name:'Gepard',cost:190,range:72,dmg:32,rate:320,icon:'⚡',
+   col:'#ffdd00',ring:'rgba(255,220,0,0.18)',desc:'Швидко знищує дрони',
+   pri:['shahed','recon','missile'],
+   st:{range:.38,dmg:.25,spd:1}},
+  {id:'irst',name:'IRIS-T',cost:490,range:135,dmg:105,rate:980,icon:'🔭',
+   col:'#ff6600',ring:'rgba(255,100,0,0.18)',desc:'Точна vs ракети+дрони',
+   pri:['missile','recon','shahed'],
+   st:{range:.8,dmg:.8,spd:.6}},
+];
+
+// Реальна дальність ППО з урахуванням складності
+function effRange(def){
+  return def.range * (G.dc && G.dc.rangeMul || 1);
+}
+
+// ─── ENEMY DEFINITIONS ───────────────────────────────
+const ENM = {
+  shahed:{name:'Шахед',hp:35,spd:58,rew:28,sc:50,col:'#ff6600',sz:7,dmg:8},
+  missile:{name:'Ракета',hp:130,spd:165,rew:95,sc:160,col:'#ff0044',sz:6,dmg:28},
+  recon:{name:'Розвідник',hp:22,spd:210,rew:55,sc:100,col:'#cc00ff',sz:5,dmg:5},
+};
+
+// ─── REAL MAP (Leaflet) AS BATTLEFIELD BACKGROUND ────
+// Bounding box of Ukraine
+const GEO_BOUNDS = {minLon:21.9,maxLon:39.5,minLat:43.4,maxLat:52.8};
+function getUaBounds(){
+  return L.latLngBounds(
+    [GEO_BOUNDS.minLat, GEO_BOUNDS.minLon],
+    [GEO_BOUNDS.maxLat, GEO_BOUNDS.maxLon]
+  );
+}
+
+let gameMap = null;
+
+function initGameMap(){
+  if(gameMap) return;
+  if(typeof L === 'undefined'){
+    console.error('Leaflet не завантажився — карту показати неможливо');
+    return;
+  }
+  gameMap = L.map('gmap', {
+    zoomControl:false, attributionControl:true,
+    dragging:false, scrollWheelZoom:false, doubleClickZoom:false,
+    boxZoom:false, keyboard:false, touchZoom:false, tap:false,
+    inertia:false, fadeAnimation:false, zoomAnimation:false
+  });
+
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:18,
+    attribution:'© OpenStreetMap'
+  }).addTo(gameMap);
+
+  fetch('https://raw.githubusercontent.com/alexandrshybanov/ukraine_geojson/master/geojson/ukraine_admin.geojson')
+    .then(r=>r.json())
+    .then(data=>{
+      L.geoJSON(data,{
+        interactive:false,
+        style:{
+          color:'#00d4ff',
+          weight:1.3,
+          fillColor:'#005bbb',
+          fillOpacity:0.08
+        }
+      }).addTo(gameMap);
+    })
+    .catch(()=>{});
+
+  fitGameMap();
+}
+
+function fitGameMap(){
+  if(!gameMap) return;
+  gameMap.invalidateSize();
+  const isMob = window.innerWidth <= 640;
+  gameMap.fitBounds(getUaBounds(), {
+    animate: false,
+    paddingTopLeft:  [0, 0],
+    paddingBottomRight: [0, isMob ? Math.round(window.innerHeight * 0.22) : Math.round(window.innerHeight * 0.08)]
+  });
+}
+
+// lon/lat → пікселі поверх реальної карти (для розміщення юнітів, ворогів, міст)
+function geoToCanvas(lon,lat){
+  if(!gameMap) return {x:0,y:0};
+  const pt = gameMap.latLngToContainerPoint([lat,lon]);
+  return {x:pt.x, y:pt.y};
+}
+
+// ─── STATE ───────────────────────────────────────────
+let G = {};
+let activeCities = new Set(ALL_CITIES.map(c=>c.name)); // default: all
+
+function resetState(diff){
+  const dc = DIFFS[diff];
+  G = {
+    diff, dc,
+    money:  dc.money,
+    score:  0,
+    wave:   0,
+    killed: 0,
+    missed: 0,
+    integrity: 100,
+    units: [],
+    enemies: [],
+    projectiles: [],
+    particles: [],
+    floats: [],
+    waveActive: false,
+    paused: false,
+    speed: 1,
+    selDef: null,
+    selUnit: null,
+    queue: [],
+    spawnT: 0,
+    hx: undefined, hy: undefined,
+    lastT: 0,
+    raf: null,
+  };
+}
+
+// ─── CANVAS ──────────────────────────────────────────
+const canvas = document.getElementById('gcanvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas(){
+  const gc = document.getElementById('gc');
+  canvas.width  = gc.clientWidth;
+  canvas.height = gc.clientHeight;
+  fitGameMap();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ─── CITY SELECTOR (реальна карта Leaflet) ───────────
+let cityMap = null;
+const cityMarkers = {};
+let cmListBuilt = false;
+
+function cityDotColor(city){
+  return city.capital ? '#ffd700' : city.pop===3 ? '#ff4444' : city.pop===2 ? '#ffaa00' : '#88aacc';
+}
+
+function makeCityIcon(city){
+  const on = activeCities.has(city.name);
+  const cls = 'cmk' + (city.capital?' capital':'') + (on?' on':'');
+  return L.divIcon({className:'cmk-wrap', html:`<div class="${cls}"></div>`, iconSize:[14,14], iconAnchor:[7,7]});
+}
+
+function initCityMap(){
+  if(cityMap) return;
+  if(typeof L === 'undefined'){
+    showMsg('Карта не завантажилась (немає інтернету або блокується CDN)');
+    return;
+  }
+  cityMap = L.map('cm-map', {zoomControl:true, attributionControl:true}).setView([49.0,31.2],6);
+
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:18,
+    attribution:'© OpenStreetMap'
+  }).addTo(cityMap);
+
+  // Реальна карта областей України (GeoJSON)
+  fetch('https://raw.githubusercontent.com/alexandrshybanov/ukraine_geojson/master/geojson/ukraine_admin.geojson')
+    .then(r=>r.json())
+    .then(data=>{
+      L.geoJSON(data,{
+        style:{
+          color:'#00d4ff',
+          weight:1.5,
+          fillColor:'#005bbb',
+          fillOpacity:0.25
+        }
+      }).addTo(cityMap);
+    })
+    .catch(()=>{});
+
+  ALL_CITIES.forEach(city=>{
+    const marker = L.marker([city.lat, city.lon], {icon: makeCityIcon(city)}).addTo(cityMap);
+    marker.bindTooltip(`${city.capital?'★ ':''}${city.name}<br><span style="color:var(--dim)">${city.region}</span>`);
+    marker.on('click', ()=>{ SFX.click(); setCityState(city.name, !activeCities.has(city.name)); });
+    cityMarkers[city.name] = marker;
+  });
+}
+
+function buildCityList(){
+  const grid = document.getElementById('cm-grid');
+  grid.innerHTML = '';
+  ALL_CITIES.forEach(city=>{
+    const row = document.createElement('label');
+    row.className = 'cm-city-row' + (city.capital?' capital':'') + (activeCities.has(city.name)?' on':'');
+    row.dataset.name = city.name;
+    row.innerHTML = `<input type="checkbox" ${activeCities.has(city.name)?'checked':''}>
+      <span class="cdot" style="background:${cityDotColor(city)}"></span>
+      <span class="cinfo"><span class="cname">${city.capital?'★ ':''}${city.name}</span><span class="creg">${city.region}</span></span>`;
+    row.querySelector('input').addEventListener('change', e=>{
+      SFX.click(); setCityState(city.name, e.target.checked);
+    });
+    grid.appendChild(row);
+  });
+  document.getElementById('cm-total').textContent = ALL_CITIES.length;
+}
+
+function setCityState(name, on){
+  if(on) activeCities.add(name); else activeCities.delete(name);
+
+  const city = ALL_CITIES.find(c=>c.name===name);
+  const marker = cityMarkers[name];
+  if(marker && city) marker.setIcon(makeCityIcon(city));
+
+  const row = document.querySelector(`.cm-city-row[data-name="${name}"]`);
+  if(row){
+    row.classList.toggle('on', on);
+    const cb = row.querySelector('input');
+    if(cb) cb.checked = on;
+  }
+  updateCmCount();
+}
+
+function updateCmCount(){
+  const el = document.getElementById('cm-count');
+  if(el) el.textContent = activeCities.size;
+}
+
+function openCityModal(){
+  if(!cmListBuilt){ buildCityList(); cmListBuilt = true; }
+  document.getElementById('city-modal').classList.add('open');
+  updateCmCount();
+  initCityMap();
+  setTimeout(()=>{ if(cityMap) cityMap.invalidateSize(); }, 60);
+}
+
+document.getElementById('cm-all').addEventListener('click',()=>{
+  ALL_CITIES.forEach(c=>setCityState(c.name, true));
+  SFX.click();
+});
+document.getElementById('cm-none').addEventListener('click',()=>{
+  ALL_CITIES.forEach(c=>setCityState(c.name, false));
+  SFX.click();
+});
+document.getElementById('cm-ok').addEventListener('click',()=>{
+  if(activeCities.size === 0){
+    ALL_CITIES.forEach(c=>setCityState(c.name, true));
+  }
+  document.getElementById('city-modal').classList.remove('open');
+  updateCityList();
+  SFX.click();
+});
+document.getElementById('btn-cities').addEventListener('click',()=>{
+  SFX.click(); openCityModal();
+});
+
+function updateCityList(){
+  const el = document.getElementById('city-list');
+  const arr = ALL_CITIES.filter(c=>activeCities.has(c.name));
+  el.innerHTML = arr.map(c=>`<div style="padding:1px 0;color:${c.capital?'#ffd700':c.pop===3?'#ff8888':c.pop===2?'#ffcc66':'var(--dim)'}">${c.capital?'★ ':c.pop===3?'• ':'· '}${c.name}</div>`).join('');
+}
+
+// ─── SPAWN ───────────────────────────────────────────
+function getSpawnPoint(){
+  const side = Math.random()*4|0;
+  let lon, lat;
+  if(side===0){lon=22+Math.random()*17.3; lat=55.6;}  // top
+  else if(side===1){lon=40.0; lat=44.5+Math.random()*10.5;}  // right
+  else if(side===2){lon=22+Math.random()*17.3; lat=43.8;}  // bottom
+  else{lon=21.5; lat=44.5+Math.random()*10.5;}  // left
+  return geoToCanvas(lon, lat);
+}
+
+function getTargetCity(){
+  const cities = ALL_CITIES.filter(c=>activeCities.has(c.name));
+  if(!cities.length) return geoToCanvas(30.52, 50.45);
+  const c = cities[Math.floor(Math.random()*cities.length)];
+  const p = geoToCanvas(c.lon, c.lat);
+  p.x += (Math.random()-.5)*18;
+  p.y += (Math.random()-.5)*18;
+  p.cityName = c.name;
+  p.dmgMult  = c.capital ? 1.5 : c.pop;
+  return p;
+}
+
+function spawnEnemy(type, spdMult){
+  const d  = ENM[type];
+  const sp = getSpawnPoint();
+  const tg = getTargetCity();
+  const dx = tg.x-sp.x, dy = tg.y-sp.y;
+  const dist = Math.hypot(dx,dy)||1;
+  const spd  = d.spd * spdMult;
+  G.enemies.push({
+    id: Math.random()+performance.now(),
+    type, col:d.col, sz:d.sz,
+    x:sp.x, y:sp.y,
+    tx:tg.x, ty:tg.y,
+    vx:dx/dist*spd, vy:dy/dist*spd,
+    hp:d.hp, maxHp:d.hp,
+    dmg:d.dmg*(tg.dmgMult||1),
+    rew:d.rew, sc:d.sc,
+    wob:Math.random()*Math.PI*2,
+    wobS:0.05+Math.random()*.04,
+    trail:[],
+  });
+}
+
+// ─── WAVE GENERATION ─────────────────────────────────
+function buildWave(wn){
+  const ws = G.dc.wsize, sm = G.dc.spd;
+  const sM = sm*(1+wn*.05);
+  let q=[];
+  const ns  = Math.round((3+wn*1.8)*ws);
+  const nm  = Math.round((1+wn*.7)*ws);
+  const nr  = Math.round((.5+wn*.5)*ws);
+  for(let i=0;i<ns;i++) q.push({type:'shahed', delay:i*800+Math.random()*300, sm:sM});
+  for(let i=0;i<nm;i++) q.push({type:'missile',delay:1500+i*2200+Math.random()*700,sm:sM});
+  for(let i=0;i<nr;i++) q.push({type:'recon',  delay:800+i*1400+Math.random()*500,sm:sM});
+  q.sort((a,b)=>a.delay-b.delay);
+  return q;
+}
+
+// ─── MAIN LOOP ───────────────────────────────────────
+function loop(ts){
+  const rawDt = Math.min((ts-G.lastT)/1000,.1);
+  G.lastT = ts;
+  const dt = G.paused ? 0 : rawDt*G.speed;
+  update(dt);
+  render(ts);
+  G.raf = requestAnimationFrame(loop);
+}
+
+// ─── UPDATE ──────────────────────────────────────────
+function update(dt){
+  if(!G.waveActive) return;
+
+  // Spawn
+  G.spawnT += dt*1000;
+  while(G.queue.length && G.spawnT>=G.queue[0].delay){
+    const q=G.queue.shift();
+    spawnEnemy(q.type,q.sm);
+  }
+
+  // Enemies
+  for(let i=G.enemies.length-1;i>=0;i--){
+    const e=G.enemies[i];
+    e.wob+=e.wobS;
+    const wx = Math.sin(e.wob)*(e.type==='shahed'?3:.8)*dt;
+    const wy = Math.cos(e.wob*1.3)*(e.type==='shahed'?2:.4)*dt;
+    e.x+=e.vx*dt+wx; e.y+=e.vy*dt+wy;
+    e.trail.push({x:e.x,y:e.y}); if(e.trail.length>14)e.trail.shift();
+
+    if(Math.hypot(e.x-e.tx,e.y-e.ty)<18){
+      G.integrity-=e.dmg; G.missed++;
+      SFX.warn();
+      spawnParticles(e.x,e.y,e.col,16,true);
+      addFloat(`-${Math.round(e.dmg)}%`,e.x,e.y,'#ff3333');
+      G.enemies.splice(i,1); updateHUD();
+      if(G.integrity<=0){endGame();return;}
+      continue;
+    }
+    if(e.hp<=0){
+      G.killed++; G.money+=e.rew; G.score+=e.sc;
+      SFX.boom(e.type==='missile');
+      spawnParticles(e.x,e.y,e.col,e.type==='missile'?28:13);
+      addFloat(`+${e.rew}`,e.x,e.y,'#ffd700');
+      G.enemies.splice(i,1); updateHUD(); continue;
+    }
+  }
+
+  // Towers shoot
+  G.units.forEach(u=>{
+    const def=DEF_TYPES.find(d=>d.id===u.type);
+    u.cd=Math.max(0,(u.cd||0)-dt*1000);
+    if(u.cd>0) return;
+    let tgt=null;
+    for(const pt of def.pri){
+      const rng=effRange(def);
+      let best=null,bd=rng+1;
+      G.enemies.filter(e=>e.type===pt).forEach(e=>{
+        const d=Math.hypot(u.x-e.x,u.y-e.y);
+        if(d<=rng&&d<bd){best=e;bd=d;}
+      });
+      if(best){tgt=best;break;}
+    }
+    if(!tgt) return;
+    u.angle=Math.atan2(tgt.y-u.y,tgt.x-u.x);
+    u.cd=def.rate;
+    u.kills=(u.kills||0);
+    SFX.shoot();
+    G.projectiles.push({
+      id:Math.random(),x:u.x,y:u.y,
+      tx:tgt.x,ty:tgt.y,tid:tgt.id,
+      spd:370+Math.random()*80,
+      dmg:def.dmg,col:def.col,trail:[],
+    });
+  });
+
+  // Projectiles
+  for(let i=G.projectiles.length-1;i>=0;i--){
+    const p=G.projectiles[i];
+    const t=G.enemies.find(e=>e.id===p.tid);
+    if(t){p.tx=t.x;p.ty=t.y;}
+    const dx=p.tx-p.x,dy=p.ty-p.y,d=Math.hypot(dx,dy);
+    const step=p.spd*dt;
+    p.trail.push({x:p.x,y:p.y}); if(p.trail.length>9)p.trail.shift();
+    if(d<=step+3){
+      if(t) t.hp-=p.dmg;
+      spawnParticles(p.tx,p.ty,p.col,5);
+      G.projectiles.splice(i,1);
+    } else {
+      p.x+=dx/d*step; p.y+=dy/d*step;
+    }
+  }
+
+  // Particles
+  for(let i=G.particles.length-1;i>=0;i--){
+    const p=G.particles[i];
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=55*dt;
+    p.life-=dt; if(p.life<=0)G.particles.splice(i,1);
+  }
+
+  // Floats
+  for(let i=G.floats.length-1;i>=0;i--){
+    const f=G.floats[i];
+    f.y-=38*dt; f.life-=dt; if(f.life<=0)G.floats.splice(i,1);
+  }
+
+  if(!G.queue.length&&!G.enemies.length) waveComplete();
+}
+
+function spawnParticles(x,y,col,n,big=false){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,sp=(big?90:50)+Math.random()*(big?110:55);
+    G.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-(big?35:10),
+      col,r:(big?3:1.5)+Math.random()*(big?4:2.5),life:.45+Math.random()*.45});
+  }
+}
+function addFloat(t,x,y,col){G.floats.push({text:t,x,y,col,life:1.1});}
+
+// ─── RENDER ──────────────────────────────────────────
+let radarAngle=0;
+
+function render(ts){
+  const W=canvas.width, H=canvas.height;
+  if(!W||!H) return;
+  ctx.clearRect(0,0,W,H);
+
+  // Radar sweep from Kyiv (overlay on top of real map)
+  radarAngle+=.007*(G.speed||1);
+  const kyiv=geoToCanvas(30.5238,50.4501);
+  const rmax=Math.max(10, Math.min(W,H)*.5);
+  // Concentric rings
+  for(let r=50;r<rmax;r+=60){
+    ctx.beginPath(); ctx.arc(kyiv.x,kyiv.y,Math.max(1,r),0,Math.PI*2);
+    ctx.strokeStyle=`rgba(0,180,255,${.04+.02*Math.sin(ts/2000+r)})`;
+    ctx.lineWidth=.7; ctx.stroke();
+  }
+  // Sweep cone
+  ctx.save(); ctx.translate(kyiv.x,kyiv.y); ctx.rotate(radarAngle);
+  const sg=ctx.createLinearGradient(0,0,rmax,0);
+  sg.addColorStop(0,'rgba(0,212,255,.2)'); sg.addColorStop(1,'rgba(0,212,255,0)');
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,rmax,-.55,0); ctx.closePath();
+  ctx.fillStyle=sg; ctx.fill(); ctx.restore();
+
+  // Mini radar on important defended cities (smaller version of Kyiv's)
+  ALL_CITIES.forEach(city=>{
+    if(city.capital) return;
+    if(!activeCities.has(city.name)) return;
+    if((city.pop||1) < 2) return; // лише великі/середні міста
+    const cp=geoToCanvas(city.lon,city.lat);
+    const rmaxC = city.pop===3 ? Math.min(70, Math.min(W,H)*.18) : Math.min(46, Math.min(W,H)*.13);
+    const angC = radarAngle*1.3 + city.lon; // власна фаза для кожного міста
+    for(let r=16;r<rmaxC;r+=20){
+      ctx.beginPath(); ctx.arc(cp.x,cp.y,Math.max(1,r),0,Math.PI*2);
+      ctx.strokeStyle=`rgba(0,200,255,${.06+.025*Math.sin(ts/1600+r)})`;
+      ctx.lineWidth=.6; ctx.stroke();
+    }
+    ctx.save(); ctx.translate(cp.x,cp.y); ctx.rotate(angC);
+    const sgc=ctx.createLinearGradient(0,0,rmaxC,0);
+    sgc.addColorStop(0,'rgba(0,212,255,.18)'); sgc.addColorStop(1,'rgba(0,212,255,0)');
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,rmaxC,-.55,0); ctx.closePath();
+    ctx.fillStyle=sgc; ctx.fill(); ctx.restore();
+  });
+
+  // Range preview on hover
+  if(G.selDef&&G.hx!==undefined){
+    const def=DEF_TYPES.find(d=>d.id===G.selDef);
+    const rng=effRange(def);
+    ctx.beginPath(); ctx.arc(G.hx,G.hy,rng,0,Math.PI*2);
+    ctx.fillStyle=def.ring; ctx.fill();
+    ctx.shadowColor=def.col; ctx.shadowBlur=8;
+    ctx.strokeStyle=def.col; ctx.lineWidth=1.8;
+    ctx.setLineDash([5,5]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.shadowBlur=0;
+  }
+
+  // Range circles for placed units
+  G.units.forEach(u=>{
+    if(G.selUnit===u||G.selDef){
+      const def=DEF_TYPES.find(d=>d.id===u.type);
+      const rng=effRange(def);
+      ctx.beginPath(); ctx.arc(u.x,u.y,rng,0,Math.PI*2);
+      ctx.fillStyle=def.ring; ctx.fill();
+      ctx.strokeStyle=def.col+'dd'; ctx.lineWidth=1.5;
+      ctx.setLineDash([4,5]); ctx.stroke(); ctx.setLineDash([]);
+    }
+  });
+
+  // Active cities markers
+  ALL_CITIES.forEach(city=>{
+    const p=geoToCanvas(city.lon,city.lat);
+    const active=activeCities.has(city.name);
+    if(city.capital){
+      const pulse=(Math.sin(ts/600)+1)*.5;
+      ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(1,10+pulse*7),0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,215,0,${.12*pulse})`; ctx.fill();
+    }
+    const baseR=city.capital?5.5:city.pop===3?4:city.pop===2?3:2.5;
+    const r=active?baseR+2:baseR*0.75;
+    const fillCol=active
+      ? (city.capital?'#ffd700':city.pop===3?'#ff6666':city.pop===2?'#ffbb44':'#88aacc')
+      : 'rgba(100,120,140,0.4)';
+
+    if(active){
+      // М'яке світіння під вибраним містом
+      ctx.beginPath(); ctx.arc(p.x,p.y,r+5,0,Math.PI*2);
+      ctx.fillStyle=fillCol; ctx.globalAlpha=.18; ctx.fill(); ctx.globalAlpha=1;
+    }
+
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,r,0,Math.PI*2);
+    ctx.fillStyle=fillCol;
+    ctx.fill();
+    ctx.strokeStyle=active?'rgba(255,255,255,.95)':'rgba(80,100,120,.3)';
+    ctx.lineWidth=active?2.4:.8;
+    ctx.stroke();
+
+    if(active){
+      // Тонке зовнішнє кільце-маркер "вибрано для захисту"
+      ctx.beginPath(); ctx.arc(p.x,p.y,r+4,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,255,255,.45)'; ctx.lineWidth=1; ctx.stroke();
+    }
+
+    // Label (only active or capital)
+    if(active || city.capital){
+      ctx.fillStyle=city.capital?'#ffd700':city.pop===3?'rgba(255,200,200,.9)':city.pop===2?'rgba(255,220,160,.85)':'rgba(160,200,230,.75)';
+      ctx.font=city.capital?'bold 10px Segoe UI':city.pop>=2?'bold 9px Segoe UI':'bold 8px Segoe UI';
+      ctx.textAlign='center';
+      ctx.fillText(city.name, p.x, p.y-(city.capital?9:7+r));
+    }
+  });
+
+
+  // Placed defense units
+  G.units.forEach(u=>{
+    const def=DEF_TYPES.find(d=>d.id===u.type);
+    const sel=G.selUnit===u;
+    ctx.save(); ctx.translate(u.x,u.y);
+    if(sel){ctx.shadowColor=def.col;ctx.shadowBlur=18;}
+    ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2);
+    ctx.fillStyle='#0a1a2e'; ctx.fill();
+    ctx.strokeStyle=def.col; ctx.lineWidth=sel?2.5:1.5; ctx.stroke();
+    ctx.save(); ctx.rotate(u.angle||0);
+    ctx.fillStyle=def.col; ctx.fillRect(2,-2,14,4);
+    ctx.restore();
+    ctx.font='11px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(def.icon,0,0);
+    ctx.textBaseline='alphabetic';
+    ctx.restore();
+  });
+
+  // Enemies
+  G.enemies.forEach(e=>{
+    if(e.trail.length>1){
+      ctx.beginPath(); ctx.moveTo(e.trail[0].x,e.trail[0].y);
+      e.trail.forEach(p=>ctx.lineTo(p.x,p.y));
+      ctx.strokeStyle=e.col+'44'; ctx.lineWidth=1; ctx.stroke();
+    }
+    ctx.save(); ctx.translate(e.x,e.y);
+    ctx.shadowColor=e.col; ctx.shadowBlur=8;
+    const ang=Math.atan2(e.vy,e.vx);
+    ctx.rotate(ang);
+    if(e.type==='shahed'){
+      ctx.beginPath(); ctx.moveTo(e.sz+2,0);
+      ctx.lineTo(-e.sz,-e.sz); ctx.lineTo(-e.sz+2,0); ctx.lineTo(-e.sz,e.sz);
+      ctx.closePath(); ctx.fillStyle=e.col; ctx.fill();
+    } else if(e.type==='missile'){
+      ctx.beginPath(); ctx.ellipse(0,0,e.sz+3,e.sz-1,0,0,Math.PI*2);
+      ctx.fillStyle=e.col; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(e.sz+4,0); ctx.lineTo(e.sz,3); ctx.lineTo(e.sz,-3);
+      ctx.closePath(); ctx.fillStyle='#ff8888'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-e.sz,-e.sz); ctx.lineTo(-e.sz-4,0); ctx.lineTo(-e.sz,e.sz);
+      ctx.closePath(); ctx.fillStyle=e.col+'88'; ctx.fill();
+    } else {
+      ctx.strokeStyle=e.col; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(-e.sz,-e.sz); ctx.lineTo(e.sz,e.sz);
+      ctx.moveTo(e.sz,-e.sz); ctx.lineTo(-e.sz,e.sz); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,e.sz-.5,0,Math.PI*2);
+      ctx.strokeStyle=e.col+'99'; ctx.lineWidth=1; ctx.stroke();
+    }
+    ctx.restore();
+    if(e.hp<e.maxHp){
+      const bw=22;
+      ctx.fillStyle='#222'; ctx.fillRect(e.x-bw/2,e.y-e.sz-8,bw,3);
+      ctx.fillStyle=e.hp>e.maxHp*.5?'#00ff88':'#ff4444';
+      ctx.fillRect(e.x-bw/2,e.y-e.sz-8,bw*(e.hp/e.maxHp),3);
+    }
+  });
+
+  // Projectiles
+  G.projectiles.forEach(p=>{
+    if(p.trail.length>1){
+      ctx.beginPath(); ctx.moveTo(p.trail[0].x,p.trail[0].y);
+      p.trail.forEach(t=>ctx.lineTo(t.x,t.y));
+      ctx.strokeStyle=p.col+'55'; ctx.lineWidth=1; ctx.stroke();
+    }
+    ctx.save(); ctx.shadowColor=p.col; ctx.shadowBlur=12;
+    ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2);
+    ctx.fillStyle=p.col; ctx.fill(); ctx.restore();
+  });
+
+  // Particles
+  G.particles.forEach(p=>{
+    const a=Math.max(0,p.life/.9);
+    const pr=Math.max(0.1, p.r*a);
+    ctx.save(); ctx.globalAlpha=a;
+    ctx.shadowColor=p.col; ctx.shadowBlur=5;
+    ctx.beginPath(); ctx.arc(p.x,p.y,pr,0,Math.PI*2);
+    ctx.fillStyle=p.col; ctx.fill(); ctx.restore();
+  });
+
+  // Floating texts
+  G.floats.forEach(f=>{
+    ctx.save(); ctx.globalAlpha=Math.max(0,f.life);
+    ctx.fillStyle=f.col; ctx.font='bold 13px Segoe UI';
+    ctx.textAlign='center'; ctx.shadowColor=f.col; ctx.shadowBlur=8;
+    ctx.fillText(f.text,f.x,f.y); ctx.restore();
+  });
+}
+
+// ─── HUD ─────────────────────────────────────────────
+function updateHUD(){
+  const m=Math.floor(G.money);
+  const i=Math.max(0,Math.round(G.integrity));
+  const ic=i>60?'var(--green)':i>30?'#ffaa00':'var(--red)';
+  // legacy hud elements (hidden but keep for compat)
+  document.getElementById('hm').textContent=m;
+  document.getElementById('hs').textContent=G.score;
+  document.getElementById('hw').textContent=G.wave;
+  document.getElementById('hk').textContent=G.killed;
+  const hi=document.getElementById('hi2');
+  hi.textContent=i+'%'; hi.style.color=ic;
+  // header bar
+  document.getElementById('ghm').textContent=m;
+  document.getElementById('ghs').textContent=G.score;
+  document.getElementById('ghw').textContent=G.wave;
+  document.getElementById('ghk').textContent=G.killed;
+  const ghi=document.getElementById('ghi');
+  ghi.textContent=i+'%'; ghi.style.color=ic;
+  // right panel
+  document.getElementById('sm').textContent=m+' грн';
+  document.getElementById('ss').textContent=G.score;
+  document.getElementById('sw').textContent=G.wave;
+  document.getElementById('sk').textContent=G.killed;
+  document.getElementById('smis').textContent=G.missed;
+  document.getElementById('su').textContent=G.units.length;
+  const fill=document.getElementById('ibf');
+  fill.style.width=i+'%';
+  fill.style.background=i>60?'linear-gradient(90deg,#00ff88,#00cc66)':i>30?'linear-gradient(90deg,#ffaa00,#ff6600)':'linear-gradient(90deg,#ff3333,#cc0000)';
+  // sync mob wbtn
+  const mwb=document.getElementById('mob-wbtn');
+  const wb=document.getElementById('wbtn');
+  if(mwb&&wb){mwb.textContent=wb.textContent;mwb.disabled=wb.disabled;}
+  updateMobStats();
+}
+
+// ─── DEFENSE CARDS ───────────────────────────────────
+function buildCards(){
+  const c=document.getElementById('dcards'); c.innerHTML='';
+  DEF_TYPES.forEach(def=>{
+    const el=document.createElement('div');
+    el.className='dc'; el.dataset.id=def.id;
+    const bars=[
+      {l:'Дальн.',v:def.st.range,c:'#00aaff'},
+      {l:'Шкода',v:def.st.dmg,c:'#ff4444'},
+      {l:'Швидк.',v:def.st.spd,c:'#00ff88'},
+    ];
+    el.innerHTML=`<div class="di">${def.icon}</div>
+      <div class="dn">${def.name}</div>
+      <div class="dco">💰 ${def.cost} грн</div>
+      <div class="dd">${def.desc}</div>
+      <div class="dbw">${bars.map(b=>`<div class="dbr"><span style="width:40px">${b.l}</span><div class="dbb"><div class="dbbf" style="width:${b.v*100}%;background:${b.c}"></div></div></div>`).join('')}</div>`;
+    el.addEventListener('click',()=>{
+      SFX.click();
+      if(G.selDef===def.id){
+        G.selDef=null; el.classList.remove('sel');
+      } else {
+        document.querySelectorAll('.dc').forEach(d=>d.classList.remove('sel'));
+        G.selDef=def.id; el.classList.add('sel');
+        G.selUnit=null; updateUnitInfo();
+      }
+    });
+    c.appendChild(el);
+  });
+}
+
+// ─── UNIT INFO ───────────────────────────────────────
+function updateUnitInfo(){
+  const p=document.getElementById('ui-panel');
+  if(!G.selUnit){p.classList.remove('show');return;}
+  p.classList.add('show');
+  const def=DEF_TYPES.find(d=>d.id===G.selUnit.type);
+  document.getElementById('ui-nm').textContent=def.name;
+  document.getElementById('ui-kl').textContent='Знищено: '+(G.selUnit.kills||0);
+  document.getElementById('ui-hpf').style.width='100%';
+}
+
+// ─── CANVAS EVENTS ───────────────────────────────────
+canvas.addEventListener('click',e=>{
+  SFX.res();
+  const r=canvas.getBoundingClientRect();
+  const cx=(e.clientX-r.left)*(canvas.width/r.width);
+  const cy=(e.clientY-r.top)*(canvas.height/r.height);
+
+  if(G.selDef){
+    const def=DEF_TYPES.find(d=>d.id===G.selDef);
+    if(G.money<def.cost){showMsg(`Недостатньо коштів! Потрібно ${def.cost} грн`);SFX.warn();return;}
+    if(G.units.some(u=>Math.hypot(u.x-cx,u.y-cy)<18)){showMsg('Занадто близько до іншої одиниці!');return;}
+    G.money-=def.cost;
+    G.units.push({type:G.selDef,x:cx,y:cy,angle:0,cd:0,kills:0});
+    SFX.click(); updateHUD();
+  } else {
+    const hit=G.units.find(u=>Math.hypot(u.x-cx,u.y-cy)<16);
+    G.selUnit=hit&&G.selUnit!==hit?hit:null;
+    updateUnitInfo();
+  }
+});
+
+canvas.addEventListener('mousemove',e=>{
+  const r=canvas.getBoundingClientRect();
+  G.hx=(e.clientX-r.left)*(canvas.width/r.width);
+  G.hy=(e.clientY-r.top)*(canvas.height/r.height);
+  const hit=G.units.find(u=>Math.hypot(u.x-G.hx,u.y-G.hy)<16);
+  canvas.style.cursor=G.selDef?'crosshair':hit?'pointer':'default';
+});
+canvas.addEventListener('mouseleave',()=>{G.hx=undefined;});
+
+// ─── BUTTONS ─────────────────────────────────────────
+document.getElementById('wbtn').addEventListener('click',()=>{
+  SFX.res(); if(!G.waveActive) startWave();
+});
+document.getElementById('btn-pause').addEventListener('click',()=>{
+  SFX.click(); G.paused=!G.paused;
+  document.getElementById('pause-ov').classList.toggle('show',G.paused);
+  document.getElementById('btn-pause').textContent=G.paused?'▶ Продовжити [P]':'⏸ Пауза [P]';
+  document.getElementById('btn-pause').classList.toggle('on',G.paused);
+});
+document.getElementById('btn-sell').addEventListener('click',()=>{
+  if(!G.selUnit){showMsg('Виберіть одиницю ППО для продажу');return;}
+  const def=DEF_TYPES.find(d=>d.id===G.selUnit.type);
+  G.money+=Math.floor(def.cost*.6);
+  G.units=G.units.filter(u=>u!==G.selUnit);
+  G.selUnit=null; updateUnitInfo(); updateHUD(); SFX.click();
+});
+document.querySelectorAll('.spdb').forEach(b=>{
+  b.addEventListener('click',()=>{
+    G.speed=+b.dataset.sp;
+    document.querySelectorAll('.spdb').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); SFX.click();
+  });
+});
+
+// ─── KEYBOARD ────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'||e.key==='Esc'){
+    G.selDef=null; G.selUnit=null;
+    document.querySelectorAll('.dc').forEach(d=>d.classList.remove('sel'));
+    updateUnitInfo();
+  }
+  if(e.key==='p'||e.key==='P') document.getElementById('btn-pause').click();
+  if(e.key==='1') document.querySelector('[data-id="patriot"]')?.click();
+  if(e.key==='2') document.querySelector('[data-id="nasams"]')?.click();
+  if(e.key==='3') document.querySelector('[data-id="gepard"]')?.click();
+  if(e.key==='4') document.querySelector('[data-id="irst"]')?.click();
+});
+
+// ─── MESSAGE ─────────────────────────────────────────
+let msgT;
+function showMsg(t){
+  const b=document.getElementById('msgbox');
+  b.textContent=t; b.classList.add('show');
+  clearTimeout(msgT); msgT=setTimeout(()=>b.classList.remove('show'),2600);
+}
+
+// ─── GAME OVER ───────────────────────────────────────
+function endGame(){
+  G.waveActive=false;
+  SFX.boom(true); SFX.warn();
+  const hs=getHS();
+  hs.push({score:G.score,wave:G.wave,diff:G.dc.name,date:new Date().toLocaleDateString('uk-UA')});
+  hs.sort((a,b)=>b.score-a.score); hs.splice(5);
+  try{localStorage.setItem('ua_shield_hs',JSON.stringify(hs));}catch(e){}
+  document.getElementById('go-sc').textContent=G.score;
+  document.getElementById('go-wv').textContent=G.wave;
+  document.getElementById('go-kl').textContent=G.killed;
+  document.getElementById('go-ms').textContent=G.missed;
+  const hsg=document.getElementById('hs-go');
+  hsg.innerHTML=hs.slice(0,5).map((h,i)=>`<div style="color:${i?'#aaa':'#ffd700'};padding:2px 0">${i+1}. ${h.score} — хвиля ${h.wave} (${h.diff})</div>`).join('');
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('gameover').classList.add('active');
+}
+
+function getHS(){try{return JSON.parse(localStorage.getItem('ua_shield_hs')||'[]');}catch{return [];}}
+function updateHSPanel(){
+  const hs=getHS();
+  const p=document.getElementById('hsp');
+  p.innerHTML=hs.length?hs.slice(0,5).map((h,i)=>`<div style="padding:1px 0;color:${!i?'var(--gold)':'var(--dim)'}">${i+1}. ${h.score} — хв.${h.wave}</div>`).join(''):'Ще немає рекордів';
+}
+
+// ─── RESTART / MENU ──────────────────────────────────
+document.getElementById('rs-btn').addEventListener('click',()=>{SFX.click();startGame(G.diff);});
+document.getElementById('mn-btn').addEventListener('click',()=>{
+  SFX.click();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('landing').classList.add('active');
+});
+
+// ─── MOBILE BOTTOM BAR ───────────────────────────────
+let mobTab='ppo';
+function updateMobStats(){
+  if(mobTab!=='stats') return;
+  const mc=document.getElementById('mob-content');
+  if(!mc) return;
+  const m=Math.floor(G.money), i=Math.max(0,Math.round(G.integrity));
+  mc.innerHTML=`<div class="mob-stats-grid">
+    <div class="mob-sitem"><div class="msl">💰 Бюджет</div><div class="msv" style="color:var(--gold)">${m} грн</div></div>
+    <div class="mob-sitem"><div class="msl">🎖 Рахунок</div><div class="msv">${G.score}</div></div>
+    <div class="mob-sitem"><div class="msl">🌊 Хвиля</div><div class="msv">${G.wave}</div></div>
+    <div class="mob-sitem"><div class="msl">💥 Збито</div><div class="msv" style="color:var(--green)">${G.killed}</div></div>
+    <div class="mob-sitem"><div class="msl">❌ Пропущено</div><div class="msv" style="color:var(--red)">${G.missed}</div></div>
+    <div class="mob-sitem"><div class="msl">🛡 Цілісність</div><div class="msv" style="color:${i>60?'var(--green)':i>30?'#ffaa00':'var(--red)'}">${i}%</div></div>
+  </div>`;
+}
+function renderMobTab(tab){
+  mobTab=tab;
+  document.querySelectorAll('.mob-tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
+  const mc=document.getElementById('mob-content');
+  mc.classList.add('open');
+  if(tab==='ppo'){
+    mc.innerHTML=`<div class="mob-cards">${DEF_TYPES.map(def=>`
+      <div class="mob-card${G.selDef===def.id?' sel':''}" data-did="${def.id}">
+        <div class="mc-icon">${def.icon}</div>
+        <div class="mc-name">${def.name}</div>
+        <div class="mc-cost">💰 ${def.cost}</div>
+      </div>`).join('')}</div>`;
+    mc.querySelectorAll('.mob-card').forEach(el=>{
+      el.addEventListener('click',()=>{
+        SFX.click();
+        const did=el.dataset.did;
+        G.selDef = G.selDef===did ? null : did;
+        if(G.selDef){ G.selUnit=null; updateUnitInfo(); }
+        document.querySelectorAll('.dc').forEach(d=>d.classList.toggle('sel',d.dataset.id===G.selDef));
+        renderMobTab('ppo');
+      });
+    });
+  } else if(tab==='actions'){
+    mc.innerHTML=`<div class="mob-actions">
+      <button class="mob-abtn cities" id="mob-btn-cities">🏙 Міста</button>
+      <button class="mob-abtn sell" id="mob-btn-sell">🔧 Продати</button>
+      <button class="mob-abtn" id="mob-btn-pause">⏸ Пауза</button>
+    </div>
+    <div class="mob-spd">
+      <button class="${G.speed===1?'on':''}" data-msp="1">×1</button>
+      <button class="${G.speed===2?'on':''}" data-msp="2">×2</button>
+      <button class="${G.speed===3?'on':''}" data-msp="3">×3</button>
+    </div>`;
+    mc.querySelector('#mob-btn-cities')?.addEventListener('click',()=>{SFX.click();openCityModal();});
+    mc.querySelector('#mob-btn-sell')?.addEventListener('click',()=>{
+      if(!G.selUnit){showMsg('Виберіть одиницю ППО для продажу');return;}
+      const def=DEF_TYPES.find(d=>d.id===G.selUnit.type);
+      G.money+=Math.floor(def.cost*.6);
+      G.units=G.units.filter(u=>u!==G.selUnit);
+      G.selUnit=null; updateUnitInfo(); updateHUD(); SFX.click();
+    });
+    mc.querySelector('#mob-btn-pause')?.addEventListener('click',()=>{document.getElementById('btn-pause').click();});
+    mc.querySelectorAll('[data-msp]').forEach(b=>{
+      b.addEventListener('click',()=>{
+        G.speed=+b.dataset.msp;
+        document.querySelectorAll('.spdb').forEach(x=>x.classList.toggle('on',+x.dataset.sp===G.speed));
+        renderMobTab('actions');
+      });
+    });
+  } else if(tab==='stats'){
+    updateMobStats();
+  }
+}
+document.querySelectorAll('.mob-tab').forEach(b=>{
+  b.addEventListener('click',()=>{SFX.click();renderMobTab(b.dataset.tab);});
+});
+document.getElementById('mob-wbtn').addEventListener('click',()=>{
+  SFX.res(); if(!G.waveActive) startWave();
+});
+
+// Touch support for canvas
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  SFX.res();
+  const t=e.touches[0];
+  const r=canvas.getBoundingClientRect();
+  const cx=(t.clientX-r.left)*(canvas.width/r.width);
+  const cy=(t.clientY-r.top)*(canvas.height/r.height);
+  G.hx=cx; G.hy=cy;
+  if(G.selDef){
+    const def=DEF_TYPES.find(d=>d.id===G.selDef);
+    if(G.money<def.cost){showMsg(`Недостатньо коштів! Потрібно ${def.cost} грн`);SFX.warn();return;}
+    if(G.units.some(u=>Math.hypot(u.x-cx,u.y-cy)<18)){showMsg('Занадто близько до іншої одиниці!');return;}
+    G.money-=def.cost;
+    G.units.push({type:G.selDef,x:cx,y:cy,angle:0,cd:0,kills:0});
+    SFX.click(); updateHUD();
+  } else {
+    const hit=G.units.find(u=>Math.hypot(u.x-cx,u.y-cy)<20);
+    G.selUnit=hit&&G.selUnit!==hit?hit:null;
+    updateUnitInfo();
+  }
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches[0];
+  const r=canvas.getBoundingClientRect();
+  G.hx=(t.clientX-r.left)*(canvas.width/r.width);
+  G.hy=(t.clientY-r.top)*(canvas.height/r.height);
+},{passive:false});
+canvas.addEventListener('touchend',()=>{G.hx=undefined;});
+
+// ─── WAVE ────────────────────────────────────────────
+function startWave(){
+  G.wave++;
+  G.waveActive=true;
+  G.spawnT=0;
+  G.queue=buildWave(G.wave);
+  const wb=document.getElementById('wbtn');
+  wb.disabled=true; wb.textContent='⚔ ХВИЛЯ АКТИВНА...';
+  const mwb=document.getElementById('mob-wbtn');
+  if(mwb){mwb.textContent='⚔ ХВИЛЯ АКТИВНА...';mwb.disabled=true;}
+  document.getElementById('wbdg').textContent=`ХВИЛЯ ${G.wave} ⚡`;
+  document.getElementById('gh-wbdg').textContent=`ХВИЛЯ ${G.wave} ⚡`;
+  SFX.wave(); updateHUD();
+}
+
+function waveComplete(){
+  G.waveActive=false;
+  const bonus=100+G.wave*50;
+  G.money+=bonus; G.score+=bonus;
+  addFloat(`+${bonus} бонус хвилі`,canvas.width/2,canvas.height*.42,'#ffd700');
+  SFX.wave(); updateHUD();
+  const wb=document.getElementById('wbtn');
+  wb.disabled=false; wb.textContent=`▶ ПОЧАТИ ХВИЛЮ ${G.wave+1}`;
+  const mwb=document.getElementById('mob-wbtn');
+  if(mwb){mwb.textContent=`▶ ПОЧАТИ ХВИЛЮ ${G.wave+1}`;mwb.disabled=false;}
+  document.getElementById('wbdg').textContent=`ХВИЛЯ ${G.wave} ✓`;
+  document.getElementById('gh-wbdg').textContent=`ХВИЛЯ ${G.wave} ✓`;
+}
+
+// ─── START GAME ──────────────────────────────────────
+function startGame(diff){
+  if(G.raf) cancelAnimationFrame(G.raf);
+  resetState(diff);
+  buildCards();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('game').classList.add('active');
+  requestAnimationFrame(()=>{
+    initGameMap();
+    resizeCanvas();
+    render(performance.now());
+  });
+  updateHUD();
+  updateHSPanel();
+  updateCityList();
+  const wb=document.getElementById('wbtn');
+  wb.disabled=false; wb.textContent='▶ ПОЧАТИ ХВИЛЮ 1';
+  const mwb=document.getElementById('mob-wbtn');
+  if(mwb){mwb.disabled=false; mwb.textContent='▶ ПОЧАТИ ХВИЛЮ 1';}
+  document.getElementById('wbdg').textContent='ПІДГОТОВКА';
+  document.getElementById('gh-wbdg').textContent='ПІДГОТОВКА';
+  renderMobTab('ppo');
+  G.lastT=performance.now();
+  loop(G.lastT);
+}
+
+// ─── LANDING CANVAS ──────────────────────────────────
+(()=>{
+  const lc=document.getElementById('lc');
+  const lctx=lc.getContext('2d');
+  let dots=[], W, H;
+  const resize=()=>{
+    W=lc.width=window.innerWidth; H=lc.height=window.innerHeight;
+    dots=Array.from({length:80},()=>({x:Math.random()*W,y:Math.random()*H,
+      vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,
+      r:Math.random()*2+.4,a:Math.random()}));
+  };
+  resize(); window.addEventListener('resize',resize);
+  let ra=0;
+  const frame=t=>{
+    lctx.clearRect(0,0,W,H);
+    const cx=W/2,cy=H/2,rm=Math.min(W,H)*.44;
+    for(let r=55;r<rm;r+=65){
+      lctx.beginPath(); lctx.arc(cx,cy,r,0,Math.PI*2);
+      lctx.strokeStyle=`rgba(0,180,255,${.04+.025*Math.sin(t/2200+r)})`;
+      lctx.lineWidth=.8; lctx.stroke();
+    }
+    ra+=.007;
+    lctx.save(); lctx.translate(cx,cy); lctx.rotate(ra);
+    const sg=lctx.createLinearGradient(0,0,rm,0);
+    sg.addColorStop(0,'rgba(0,212,255,.16)'); sg.addColorStop(1,'rgba(0,212,255,0)');
+    lctx.beginPath(); lctx.moveTo(0,0); lctx.arc(0,0,rm,-.55,0); lctx.closePath();
+    lctx.fillStyle=sg; lctx.fill(); lctx.restore();
+    dots.forEach(d=>{
+      d.x+=d.vx; d.y+=d.vy;
+      if(d.x<0)d.x=W; if(d.x>W)d.x=0;
+      if(d.y<0)d.y=H; if(d.y>H)d.y=0;
+      lctx.beginPath(); lctx.arc(d.x,d.y,d.r,0,Math.PI*2);
+      lctx.fillStyle=`rgba(0,212,255,${d.a*.45})`; lctx.fill();
+    });
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+})();
+
+// ─── LANDING BUTTONS ─────────────────────────────────
+let selDiff='normal';
+document.querySelectorAll('.dbtn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.dbtn').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel'); selDiff=b.dataset.d; SFX.click();
+  });
+});
+document.getElementById('playbtn').addEventListener('click',()=>{
+  SFX.res(); SFX.click(); startGame(selDiff);
+});
+
+// Init
+resetState('normal');
+</script>
+</body>
+</html>
